@@ -83,6 +83,8 @@ state_table_t DEBUG_STATE = {
 
 void handle_rf_irq(uint8_t status)
 {
+
+
 	// Report the IRQ
 	if (CURRENT_STATE->interrupt)
 		CURRENT_STATE->interrupt(status);
@@ -95,6 +97,11 @@ void radio_init(void)
 {
 	rf233_irq_cb = handle_rf_irq;	
 	radio_set_state(INITIALIZING);
+}
+
+void radio_set_clock(uint8_t new_clock)
+{
+	rf233_set_clock(new_clock);
 }
 
 void radio_tick(void)
@@ -178,6 +185,11 @@ uint8_t radio_send_string(char *data)
 {
 	uint8_t len = strlen(data);
 	return radio_send_bytes((uint8_t*)data, len);
+}
+
+uint8_t radio_send_clocksync(clock_sync_t *clock)
+{
+	return radio_send_bytes(clock, sizeof(clock_sync_t));
 }
 
 uint8_t radio_receive(radio_message_t *rm)

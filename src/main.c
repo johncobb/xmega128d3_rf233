@@ -5,30 +5,23 @@
 *  Author: Eric Rudisill
 */
 
-#include <stdio.h>
-#include <string.h>
-#include <avr/io.h>
-#include <avr/interrupt.h>
-#include <avr/pgmspace.h>
-#include <util/delay.h>
-#include "clock.h"
+
+#include "cph.h"
 #include "debug.h"
 #include "radio.h"
-#include "rf233.h"
-#include "rf233_defs.h"
+#include "cli.h"
 
-
-#define DEFAULT_PERIOD	     (2000)
-#define DEFAULT_PERIOD_FAST  (100)
-#define WAIT_FOR_PRESS	{debug_in = '\0'; while (debug_in == '\0');}
-
-volatile char debug_in = '\0';
-clock_time_t timer = 0;
-clock_time_t period = 0;
-
-char autoping = 0;
+char autoping = 1;
 char brief = 0;
 char fast = 0;
+
+void handle_clock_master(void);
+void handle_clock_sync(void);
+
+
+static clock_time_t elapsed = 0;
+static volatile uint8_t clock_list_index = 0;
+static uint32_t clock_list[10] = {0};
 
 void enable_interrupts(void)
 {
@@ -37,99 +30,80 @@ void enable_interrupts(void)
 	sei();
 }
 
-void debug_cb(uint8_t data)
+
+volatile uint16_t timer_counter = 0;
+
+//void tc_setperiod(void)
+//{
+//	/* Set period/TOP value. */
+//	/* Setup a millisecond timer */
+////	TCC1.PER = 16000;
+//	/* Select clock source. */
+//	TCC1.CTRLA = (TCC1.CTRLA & ~TC1_CLKSEL_gm ) | TC_CLKSEL_DIV1_gc;
+////	TCC1.INTCTRLA = (TCC1.INTCTRLA & ~TC0_OVFINTLVL_gm) | TC_OVFINTLVL_LO_gc;
+//
+//}
+
+// uint16_t 65535
+// 0.0040959375
+void tc_setperiod(void)
 {
-	debug_in = data;
+	/* Set period/TOP value. */
+	/* Setup a millisecond time
+	 *r */
+//	TCC1.PER = 16000;
+	/* Select clock source. */
+	TCC1.CTRLA = (TCC1.CTRLA & ~TC1_CLKSEL_gm ) | TC_CLKSEL_DIV1_gc;
+//	TCC1.INTCTRLA = (TCC1.INTCTRLA & ~TC0_OVFINTLVL_gm) | TC_OVFINTLVL_LO_gc;
+
 }
+
+
+void tc_reset(void)
+{
+	/* TC must be turned off before a Reset command. */
+	TCC1.CTRLA = (TCC1.CTRLA & ~TC1_CLKSEL_gm ) | TC_CLKSEL_OFF_gc;
+	/* Issue Reset command. */
+	TCC1.CTRLFSET = TC_CMD_RESET_gc;
+}
+
+static volatile uint8_t sync_received = 0;
+static uint32_t wireless_sync_elapsed = 0;
+volatile uint32_t wireless_sync_counter = 0;
+static uint32_t wireless_counter_prev = 0;
+
 
 void receive_cb(radio_message_t * message)
 {
-	if (brief) {
-		printf_P(PSTR("%X "), message->SignalStrengthRaw);
-	}
-	else
-	{
-		printf_P(PSTR("[RCV] MAC:%X SEQ:%X LEN:%X CS:%X SS:%d(%X) DATA: %s\r\n"), 
-			message->MacHeader,
-			message->Sequence,
-			message->Length,
-			message->Checksum,
-			message->SignalStrength,
-			message->SignalStrengthRaw,
-			(char*)(message->Data));
-	}		
+
+	//(6.25*12800)/1000
+	wireless_sync_counter = sync_count;
+
+	wireless_sync_elapsed = wireless_sync_counter - wireless_counter_prev;
+	wireless_counter_prev = wireless_sync_counter;
+
+	sync_received = 1;
+
+
+
+
+//	if (brief) {
+//		printf_P(PSTR("%X "), message->SignalStrengthRaw);
+//	}
+//	else
+//	{
+//		printf_P(PSTR("[RCV] MAC:%X SEQ:%X LEN:%X CS:%X SS:%d(%X) DATA: %s\r\n"),
+//			message->MacHeader,
+//			message->Sequence,
+//			message->Length,
+//			message->Checksum,
+//			message->SignalStrength,
+//			message->SignalStrengthRaw,
+//			(char*)(message->Data));
+//	}
 }
 
-void handle_input(void)
-{
-	if (debug_in != '\0')
-	{
-		if (debug_in == '?')
-		{
-			printf_P(PSTR("\r\n"));
-			printf_P(PSTR("COMMANDS:    (+ == SHIFT)\r\n\r\n"));			
-			printf_P(PSTR("  ENTER  - send HELLO WORLD\r\n"));
-			printf_P(PSTR("  SPACE  - toggle sleep\r\n"));
-			printf_P(PSTR("  a      - toggle 2 sec autoping PING\r\n"));
-			printf_P(PSTR("  b      - toggle brief mode\r\n"));
-			printf_P(PSTR("  c      - turn CLKM OFF\r\n"));
-			printf_P(PSTR("  +c     - turn CLKM ON - 8 MHz\r\n"));
-			printf_P(PSTR("  f      - toggle fast autoping\r\n"));
-			printf_P(PSTR("  s      - print various RF233 status registers\r\n"));
-			printf_P(PSTR("\r\n"));
-		}
-		else if (debug_in == 0x0d)
-		{
-			radio_send_string("HELLO WORLD");
-		}
-		else if (debug_in == ' ')
-		{
-			if (RADIO_STATUS.IsSleeping)
-			{
-				radio_wake();
-				printf_P(PSTR("Radio is LISTENING\r\n"));
-			}				
-			else
-			{
-				radio_sleep();
-				printf_P(PSTR("Radio is SLEEPING\r\n"));
-			}				
-		}
-		else if (debug_in == 'a')
-		{
-			autoping = ~autoping;
-			timer = clock_millis;
-			printf_P(PSTR("AUTOPING is now %X\r\n"), autoping);
-		}
-		else if (debug_in == 'b')
-		{
-			brief = ~brief;
-			printf_P(PSTR("BRIEF is now %X\r\n"), brief);
-		}
-		else if (debug_in == 'c')
-		{
-			rf233_set_clock(CLKM_NO_CLOCK);
-			printf_P(PSTR("RF233 CLKM turned off\r\n"));
-		}
-		else if (debug_in == 'C')
-		{
-			rf233_set_clock(CLKM_8MHZ);
-			printf_P(PSTR("RF233 CLKM turned ON (8 MHz)\r\n"));
-		}
-		else if (debug_in == 'f')
-		{
-			fast = ~fast;
-			period = (fast ? DEFAULT_PERIOD_FAST : DEFAULT_PERIOD);
-			printf_P(PSTR("FAST mode is %X\r\n"), fast);
-		}
-		else if (debug_in == 's')
-		{
-			radio_print_status();
-		}
-		
-		debug_in = '\0';
-	}
-}
+
 
 
 /***********************************************************/
@@ -139,8 +113,9 @@ void handle_input(void)
 /***********************************************************/
 int main(void)
 {
-	clock_time_t elapsed = 0;
-	period = DEFAULT_PERIOD;
+
+	//period = DEFAULT_PERIOD;
+	period = DEFAULT_PERIOD_FAST;
 	
 	// First thing: initialize clock
 	clock_init();	
@@ -155,6 +130,8 @@ int main(void)
 	
 	printf_P(PSTR("\r\nRF233 Test 1.0\r\n"));
 	printf_P(PSTR("Press any key to start\r\n"));
+	printf_P(PSTR("[SND] CLK:%lu \r\n"), clock_millis);
+
 
 
 	for(int i=0; i<5; i++) {
@@ -163,16 +140,14 @@ int main(void)
 		PORTE.OUT = 0x00;
 		_delay_ms(50);
 	}
-//	PORTE.OUT = 0x01;
-//	_delay_ms(1000);
-//	PORTE.OUT = 0x00;
 	
 #if AUTOPING
 	autoping = 0xFF;
 #else
-	WAIT_FOR_PRESS
+//	WAIT_FOR_PRESS
 #endif
 	
+	init_sync_timer();
 	radio_init();
 	
 	radio_receive_cb = receive_cb;
@@ -180,6 +155,12 @@ int main(void)
 
 	// Force a command printout
 	debug_in = '?';		
+
+
+	// Baud divided by 8 bits divided by 1000 millis gives how many bytes per millis
+//	115200/8/1000
+
+	//tc_setperiod();
 		
 	while(1)
 	{
@@ -187,16 +168,62 @@ int main(void)
 
 		handle_input();
 		
-		if (autoping)
-		{
-			elapsed = clock_millis - timer;
-			if (elapsed >= period)
-			{
-				radio_send_string("PING");
+		if(CLOCK_MASTER == 1) {
+			handle_clock_master();
+		} else {
+			handle_clock_sync();
+		}
 
 
-				timer = clock_millis;
-			}
-		}		
 	}
+}
+
+void handle_clock_master(void)
+{
+	elapsed = clock_millis - timer;
+
+	if (elapsed >= period)
+	{
+
+		clock_sync_t *sync = NULL;
+
+		sync->msg_type = 0x01;
+		sync->clock = clock_millis;
+		sync->temp = 0x01;
+		radio_send_clocksync(sync);
+		timer = clock_millis;
+
+//		printf_P(PSTR("%lu\r\n"), sync->clock);
+
+	}
+}
+
+void handle_clock_sync(void)
+{
+
+	if(sync_received == 0)
+		return;
+
+	sync_received = 0;
+
+	clock_list[clock_list_index] = wireless_sync_elapsed;
+	clock_list_index++;
+
+	if(clock_list_index == 10) {
+		clock_list_index = 0;
+		printf("\r\n");
+		printf_P(PSTR("%lu\r\n"), clock_list[0]);
+		printf_P(PSTR("%lu\r\n"), clock_list[1]);
+		printf_P(PSTR("%lu\r\n"), clock_list[2]);
+		printf_P(PSTR("%lu\r\n"), clock_list[3]);
+		printf_P(PSTR("%lu\r\n"), clock_list[4]);
+		printf_P(PSTR("%lu\r\n"), clock_list[5]);
+		printf_P(PSTR("%lu\r\n"), clock_list[6]);
+		printf_P(PSTR("%lu\r\n"), clock_list[7]);
+		printf_P(PSTR("%lu\r\n"), clock_list[8]);
+		printf_P(PSTR("%lu\r\n"), clock_list[9]);
+		printf("\r\n");
+
+	}
+
 }

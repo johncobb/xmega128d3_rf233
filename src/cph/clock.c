@@ -10,9 +10,14 @@
 #include "clock.h"
 
 volatile clock_time_t clock_millis = 0;
+volatile clock_time_t sync_count = 0;
 
 ISR(TCC0_OVF_vect){
 	clock_millis++;
+}
+
+ISR(TCC1_OVF_vect) {
+	sync_count++;
 }
 
 void init_timer()
@@ -20,6 +25,15 @@ void init_timer()
 	TCC0.PER = 16000; // 2 MHz divided by 1000 to get milliseconds
 	TCC0.CTRLA = ( TCC0.CTRLA & ~TC0_CLKSEL_gm ) | TC_CLKSEL_DIV1_gc;
 	TCC0.INTCTRLA = ( TCC0.INTCTRLA & ~TC0_OVFINTLVL_gm ) | TC_OVFINTLVL_LO_gc;
+}
+
+void init_sync_timer()
+{
+
+//	TCC1.PER = 1; // 6.25 microsecond timer - sync_count
+	TCC1.PER = 0; // 6.25 microsecond timer - sync_count
+	TCC1.CTRLA = ( TCC1.CTRLA & ~TC1_CLKSEL_gm ) | TC_CLKSEL_DIV1_gc;
+	TCC1.INTCTRLA = ( TCC1.INTCTRLA & ~TC1_OVFINTLVL_gm ) | TC_OVFINTLVL_LO_gc;
 }
 
 /**
@@ -76,9 +90,13 @@ void clock_init(void)
     OSC.DFLLCTRL = OSC_RC32MCREF_bm;
     DFLLRC32M.CTRL |= DFLL_ENABLE_bm;
 
-	/* Setup a millisecond timer */	
-	TCC0.PER = 16000; // 2 MHz divided by 1000 to get milliseconds
+	/* Setup a millisecond timer - clock_millis */
+	TCC0.PER = 16000; // 16 MHz divided by 1000 to get milliseconds
 	TCC0.CTRLA = ( TCC0.CTRLA & ~TC0_CLKSEL_gm ) | TC_CLKSEL_DIV1_gc;
 	TCC0.INTCTRLA = ( TCC0.INTCTRLA & ~TC0_OVFINTLVL_gm ) | TC_OVFINTLVL_LO_gc;
 	
+//	TCC1.PER = 1; // 6.25 microsecond timer - sync_count
+//	TCC1.CTRLA = ( TCC1.CTRLA & ~TC1_CLKSEL_gm ) | TC_CLKSEL_DIV1_gc;
+//	TCC1.INTCTRLA = ( TCC1.INTCTRLA & ~TC1_OVFINTLVL_gm ) | TC_OVFINTLVL_LO_gc;
+
 }
