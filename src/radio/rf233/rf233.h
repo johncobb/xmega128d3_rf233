@@ -19,6 +19,9 @@ typedef struct {
 	uint8_t		LQI;		// link quality indication
 	uint8_t		ED;			// energy detection
 	uint8_t		RX_STATUS;	// receive status
+	uint8_t		TOM_0;
+	uint8_t		TOM_1;
+	uint8_t		TOM_2;
 } rf233_message_t;
 
 
@@ -27,12 +30,14 @@ typedef void (*rf233_irq_cb_t)(uint8_t);
 
 uint8_t rf233_init_io(void);
 uint8_t rf233_init(void);
+uint8_t rf233_enable_tom(void);
 void rf233_reset(void);
 void rf233_status(void);
 void rf233_set_clock(uint8_t);
 void rf233_set_trx_cmd(uint8_t);
 void rf233_send_message(rf233_message_t * msg);
 void rf233_get_message(rf233_message_t * msg);
+
 
 extern rf233_irq_cb_t rf233_irq_cb;
 

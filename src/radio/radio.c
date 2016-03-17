@@ -10,6 +10,7 @@
 #include <string.h>
 #include <avr/io.h>
 #include <avr/pgmspace.h>
+#include "cph.h"
 #include "rf233.h"
 #include "rf233_defs.h"
 #include "radio.h"
@@ -20,12 +21,14 @@
 #include "radio_reporting.h"
 #include "radio_sleeping.h"
 
-//#define LOG(fmt, ...) printf_P(PSTR(fmt), ##__VA_ARGS__)
-#define LOG(fmt, ...) /*NO LOGGING*/
+#define LOG(fmt, ...) printf_P(PSTR(fmt), ##__VA_ARGS__)
+//#define LOG(fmt, ...) /*NO LOGGING*/
 
 // Public fields
 radio_status_t RADIO_STATUS;
 radio_receive_cb_t radio_receive_cb = 0;
+
+
 
 // State management
 state_table_t STATE_TABLES [] = {
@@ -83,8 +86,6 @@ state_table_t DEBUG_STATE = {
 
 void handle_rf_irq(uint8_t status)
 {
-
-
 	// Report the IRQ
 	if (CURRENT_STATE->interrupt)
 		CURRENT_STATE->interrupt(status);
@@ -209,6 +210,8 @@ uint8_t radio_receive(radio_message_t *rm)
 	rm->Checksum = m.FCS;
 	rm->SignalStrengthRaw = m.ED;
 	rm->SignalStrength = RF233_RSSI_BASE + m.ED;
+	LOG("[RCV] TOM_0: %02x TOM_1: %02x TOM_2: %02x\r\n");
+
 	
 	LOG("[RCV] PHR:%X FCS:%X LQI:%X ED:%X RX_STATUS:%X DATA:%s\r\n", m.PHR, m.FCS, m.LQI, m.ED, m.RX_STATUS, ((char*)m.PSDU) + RADIO_MSG_HDRLEN);
 	

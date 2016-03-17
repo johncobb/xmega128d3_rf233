@@ -10,11 +10,12 @@
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
 #include <util/delay.h>
+#include "clock.h"
 #include "rf233.h"
 #include "rf233_defs.h"
 
-//#define LOG_V(fmt, ...) printf_P(PSTR(fmt), ##__VA_ARGS__)
-#define LOG_V(fmt, ...) /*NO LOGGING*/
+#define LOG_V(fmt, ...) printf_P(PSTR(fmt), ##__VA_ARGS__)
+//#define LOG_V(fmt, ...) /*NO LOGGING*/
 
 #define LOG(fmt, ...) printf_P(PSTR(fmt), ##__VA_ARGS__)
 //#define LOG(fmt, ...) /*NO LOGGING*/
@@ -25,6 +26,9 @@
 
 rf233_irq_cb_t rf233_irq_cb;
 
+clock_time_t wireless_sync_elapsed = 0;
+clock_time_t wireless_sync_prev = 0;
+uint8_t sync_received = 0;
 
 // Forward decs
 uint8_t rf233_spi_putc( uint8_t data );
@@ -35,6 +39,12 @@ uint8_t rf233_spi_write_register( uint8_t address, uint8_t data);
 
 ISR(RF233_IRQ_VECTOR)
 {
+	//(6.25*12800)/1000
+	wireless_sync_elapsed = wireless_sync_millis - wireless_sync_prev;
+	wireless_sync_prev = wireless_sync_millis;
+	sync_received = 1;
+
+
 	uint8_t status = _read(IRQ_STATUS);
 	if (rf233_irq_cb != 0) rf233_irq_cb(status);
 }
@@ -144,11 +154,25 @@ uint8_t rf233_init(void)
 	//_write(IRQ_MASK, (IRQ_RX_START_bm | IRQ_AMI_bm | IRQ_TRX_END_bm));
 	_write(IRQ_MASK, (0xFF)); // turn them all on
 	
+
+
 	// Go to TRX_OFF state
 	rf233_set_trx_cmd(TRX_CMD_TRX_OFF);
 	
 	LOG_V("rf233_init: EXIT\r\n");
 	
+	return RF233_TRUE;
+}
+
+uint8_t rf233_enable_tom(void)
+{
+	LOG_V("rf233_enable_tom: ENTER\r\n");
+
+	// enable TOM: Time of Flight
+	_write(0X03, 0b10101101);
+
+	LOG_V("rf233_enable_tom: EXIT\r\n");
+
 	return RF233_TRUE;
 }
 
@@ -230,13 +254,67 @@ void rf233_send_message(rf233_message_t * msg)
 	LOG_V("rf233_send_message: EXIT\r\n");
 }
 
+//void rf233_get_message(rf233_message_t * msg)
+//{
+//	LOG_V("rf233_get_message: ENTER\r\n");
+//
+//
+//
+//	// Grab the bytes
+//	RESET_CS
+//
+//
+//	_send(READ_FRAME_BUFFER);
+//
+//
+//	msg->PHR = _send(0xFF);	// PHR
+//	for (int i=0;i<msg->PHR-2;i++)
+//		msg->PSDU[i] = _send(0xFF);
+//	msg->FCS = ((uint16_t)_send(0xFF)) << 8;
+//	msg->FCS |= _send(0xFF);
+//	msg->LQI = _send(0xFF);
+//	msg->ED = _send(0xFF);
+//	msg->RX_STATUS = _send(0xFF);
+//
+//	SET_CS
+//
+//	LOG_V("rf233_get_message: EXIT\r\n");
+//}
+
+
 void rf233_get_message(rf233_message_t * msg)
 {
 	LOG_V("rf233_get_message: ENTER\r\n");
-	
-	// Grab the bytes
-	RESET_CS
-	_send(READ_FRAME_BUFFER);
+
+	msg->PHR = _read(0x00);
+
+
+	for (int i=0;i<msg->PHR-2;i++)
+		msg->PSDU[i] = _read(i+1);
+
+	msg->FCS = ((uint16_t)_read(msg->PHR-2)) << 8;
+	msg->FCS |= _read(msg->PHR-1);
+
+	msg->LQI = _read(msg->PHR);
+	msg->ED = _read(msg->PHR+1);
+	msg->RX_STATUS = _read(msg->PHR+2);
+
+	msg->TOM_0 = _read(0x7d);
+	msg->TOM_1 = _read(0x7e);
+	msg->TOM_2 = _read(0x7f);
+
+	LOG_V("rf233_get_message: EXIT\r\n");
+
+	return;
+
+	msg->FCS = ((uint16_t)_send(0xFF)) << 8;
+	msg->FCS |= _send(0xFF);
+	msg->LQI = _send(0xFF);
+	msg->ED = _send(0xFF);
+	msg->RX_STATUS = _send(0xFF);
+
+
+
 	msg->PHR = _send(0xFF);	// PHR
 	for (int i=0;i<msg->PHR-2;i++)
 		msg->PSDU[i] = _send(0xFF);
@@ -245,7 +323,8 @@ void rf233_get_message(rf233_message_t * msg)
 	msg->LQI = _send(0xFF);
 	msg->ED = _send(0xFF);
 	msg->RX_STATUS = _send(0xFF);
+
 	SET_CS
-	
+
 	LOG_V("rf233_get_message: EXIT\r\n");
 }

@@ -17,7 +17,9 @@
 #define RADIO_MSG_FCSLEN	(2)
 #define RADIO_MSG_MAXLEN	(127 - RADIO_MSG_HDRLEN - RADIO_MSG_FCSLEN)
 
-extern volatile uint32_t wireless_sync_counter;
+extern volatile clock_time_t wireless_sync_elapsed;
+extern volatile uint8_t sync_received;
+extern volatile clock_time_t wireless_sync_prev;
 
 typedef struct {
 	uint16_t MacHeader;
@@ -40,7 +42,48 @@ typedef struct {
 	uint8_t temp;
 } clock_sync_t;
 
+
+
+typedef struct{
+
+	uint8_t status;      //initial value of register as ISR is entered
+	uint8_t  event;		//event type
+//	uint8_t  aatset;		//auto ACK TX bit is set
+	uint16_t datalength;	//length of frame
+	uint8_t  fctrl[2];	//frame control bytes
+//	uint8_t  dblbuff ;	//set if double buffer is enabled
+
+}rf233_callback_data_t;
+
+// -------------------------------------------------------------------------------------------------------------------
+// Structure to hold device data
+typedef struct
+{
+    uint32_t      device_id ;
+//    uint32      partID ;
+//    uint32      lotID ;
+//    uint8       chan;               // Added channel here - used in the reading of accumulator
+//    uint8       longFrames ;        // Flag in non-standard long frame mode
+//    uint8       otprev ;            // OTP revision number (read during initialisation)
+//    uint32      txFCTRL ;           // Keep TX_FCTRL register config
+//    uint8       xtrim;              // XTAL trim value read from OTP
+//    uint8       dblbuffon;          // Double RX buffer mode flag
+    uint32_t      sys_cfg_reg ;         // Local copy of system config register
+    uint16_t      sleep_mode;         // Used for automatic reloading of LDO tune and microcode at wake-up
+    rf233_callback_data_t cdata;      // Callback data structure
+
+    uint8_t       wait4resp ;         // wait4response was set with last TX start command
+    int         prf_index ;
+
+    void (*rf233_txcallback)(const rf233_callback_data_t *txd);
+    void (*rf233_rxcallback)(const rf233_callback_data_t *rxd);
+
+} rf233_local_data_t ;
+
+static rf233_local_data_t rf233local ; // Static local device data
+
 typedef void (*radio_receive_cb_t)(radio_message_t *);
+typedef void (*radio_tof_cb_t)(radio_message_t *);
 
 void tc_reset(void);
 

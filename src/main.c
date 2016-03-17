@@ -5,7 +5,6 @@
 *  Author: Eric Rudisill
 */
 
-
 #include "cph.h"
 #include "debug.h"
 #include "radio.h"
@@ -17,7 +16,6 @@ char fast = 0;
 
 void handle_clock_master(void);
 void handle_clock_sync(void);
-
 
 static clock_time_t elapsed = 0;
 static volatile uint8_t clock_list_index = 0;
@@ -44,6 +42,7 @@ volatile uint16_t timer_counter = 0;
 //
 //}
 
+
 // uint16_t 65535
 // 0.0040959375
 void tc_setperiod(void)
@@ -67,23 +66,11 @@ void tc_reset(void)
 	TCC1.CTRLFSET = TC_CMD_RESET_gc;
 }
 
-static volatile uint8_t sync_received = 0;
-static uint32_t wireless_sync_elapsed = 0;
-volatile uint32_t wireless_sync_counter = 0;
-static uint32_t wireless_counter_prev = 0;
+
 
 
 void receive_cb(radio_message_t * message)
 {
-
-	//(6.25*12800)/1000
-	wireless_sync_counter = sync_count;
-
-	wireless_sync_elapsed = wireless_sync_counter - wireless_counter_prev;
-	wireless_counter_prev = wireless_sync_counter;
-
-	sync_received = 1;
-
 
 
 
@@ -153,6 +140,10 @@ int main(void)
 	radio_receive_cb = receive_cb;
 	timer = clock_millis;
 
+
+	printf_P(PSTR("[SND] TMR:%lu \r\n"), timer);
+
+
 	// Force a command printout
 	debug_in = '?';		
 
@@ -168,6 +159,8 @@ int main(void)
 
 		handle_input();
 		
+
+
 		if(CLOCK_MASTER == 1) {
 			handle_clock_master();
 		} else {
@@ -204,9 +197,21 @@ void handle_clock_sync(void)
 	if(sync_received == 0)
 		return;
 
-	sync_received = 0;
+	elapsed = clock_millis - timer;
 
-	clock_list[clock_list_index] = wireless_sync_elapsed;
+	if (elapsed >= 500)
+	{
+		printf_P(PSTR("%lu %lu %ld\r\n"), wireless_sync_prev, wireless_sync_millis,  (wireless_sync_millis - wireless_sync_prev));
+
+		timer = clock_millis;
+	}
+
+
+	sync_received = 0;
+	return;
+
+//	clock_list[clock_list_index] = wireless_sync_elapsed;
+	clock_list[clock_list_index] = wireless_sync_millis;
 	clock_list_index++;
 
 	if(clock_list_index == 10) {

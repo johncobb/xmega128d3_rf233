@@ -22,6 +22,8 @@ void radio_init_enter(void)
 
 	uint8_t result = rf233_init();
 	
+	result = rf233_enable_tom();
+
 	if (result == 0)
 	{
 		LOG("[INIT] FAILED\r\n");
