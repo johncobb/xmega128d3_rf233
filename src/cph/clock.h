@@ -12,13 +12,13 @@
 #include <avr/io.h>
 
 typedef uint32_t clock_time_t;
-
+void init_timer();
 void clock_init(void);
 void clock_init_32bit_counter(void);
 void init_sync_timer(void);
 
 extern volatile clock_time_t clock_millis;
-extern volatile clock_time_t wireless_sync_millis;
+
 
 
 #endif /* CLOCK_H_ */

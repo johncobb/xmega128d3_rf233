@@ -6,9 +6,12 @@
  */ 
 
 
+
 #ifndef RF233_DEFS_H_
 #define RF233_DEFS_H_
 
+
+#define SPI_DUMMY_VALUE		0
 
 #define RF233_TRUE			(1)
 #define RF233_FALSE			(0)
@@ -111,4 +114,63 @@
 #define IRQ_TRX_UR_bm		(1 << 0x06)
 #define IRQ_BAT_LOW_bm		(1 << 0x07)
 
-#endif /* RF233_DEFS_H_ */
+
+
+
+
+
+/** Base address and size for Time-Of-Flight TOM address space **/
+#define TOM_BASE_ADDR	(0x73)
+#define TOM_SIZE		(13)
+
+/** Offset for register TOM_CPM_0 */
+#define RG_TOM_CPM_0   	(0x00)
+
+/** Offset for register TOM_CPM_1 */
+#define RG_TOM_CPM_1   (0x01)
+
+/** Offset for register TOM_CPM_2 */
+#define RG_TOM_CPM_2   (0x02)
+
+/** Offset for register TOM_CPM_3 */
+#define RG_TOM_CPM_3   (0x03)
+
+/** Offset for register TOM_CPM_4 */
+#define RG_TOM_CPM_4   (0x04)
+
+/** Offset for register TOM_CPM_5 */
+#define RG_TOM_CPM_5   (0x05)
+
+/** Offset for register TOM_CPM_6 */
+#define RG_TOM_CPM_6   (0x06)
+
+/** Offset for register TOM_CPM_7 */
+#define RG_TOM_CPM_7   (0x07)
+
+/** Offset for register TOM_CPM_8 */
+#define RG_TOM_CPM_8   (0x08)
+
+/** Offset for register TOM_FEC */
+#define RG_TOM_FEC   (0x09)
+
+/** Offset for register TOM_TIM_0 */
+#define RG_TOM_TIM_0   (0x0A)
+
+/** Offset for register TOM_TIM_1 */
+#define RG_TOM_TIM_1   (0x0B)
+
+/** Offset for register TOM_TIM_2 */
+#define RG_TOM_TIM_2   (0x0C)
+
+
+/** Access parameters for sub-register TOM_EN in register @ref RG_TRX_CTRL_0 */
+#define SR_TOM_EN   0x03, 0x80, 7
+
+/** Access parameters for sub-register ARET_TX_TS_EN in register @ref RG_XAH_CTRL_1 */
+#define SR_ARET_TX_TS_EN   0x17, 0x80, 7
+
+/** Access parameters for sub-register IRQ_2_EXT_EN in register @ref RG_TRX_CTRL_1 */
+#define SR_IRQ_2_EXT_EN   0x04, 0x40, 6
+
+#endif
+

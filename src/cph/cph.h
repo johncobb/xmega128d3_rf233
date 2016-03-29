@@ -20,7 +20,7 @@
 
 #define CLOCK_MASTER   0
 #define DEFAULT_PERIOD	     (2000)
-#define DEFAULT_PERIOD_FAST  (50) //25519 @ 100ms  12928 @ 50ms
+#define DEFAULT_PERIOD_FAST  (100) //25519 @ 100ms  12928 @ 50ms
 #define WAIT_FOR_PRESS	{debug_in = '\0'; while (debug_in == '\0');}
 
 
@@ -31,7 +31,7 @@ char brief;
 char fast;
 
 
-static clock_time_t timer = 0;
-static clock_time_t period = 0;
+extern clock_time_t app_timer;
+extern clock_time_t app_period;
 
 #endif /* SRC_CPH_H_ */

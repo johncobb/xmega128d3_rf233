@@ -14,11 +14,11 @@
 #include "rf233.h"
 #include "rf233_defs.h"
 
-#define LOG_V(fmt, ...) printf_P(PSTR(fmt), ##__VA_ARGS__)
-//#define LOG_V(fmt, ...) /*NO LOGGING*/
+//#define LOG_V(fmt, ...) printf_P(PSTR(fmt), ##__VA_ARGS__)
+#define LOG_V(fmt, ...) /*NO LOGGING*/
 
-#define LOG(fmt, ...) printf_P(PSTR(fmt), ##__VA_ARGS__)
-//#define LOG(fmt, ...) /*NO LOGGING*/
+//#define LOG(fmt, ...) printf_P(PSTR(fmt), ##__VA_ARGS__)
+#define LOG(fmt, ...) /*NO LOGGING*/
 
 #define _send(x)		rf233_spi_putc(x)
 #define _read(x)		rf233_spi_read_register(x)
@@ -34,15 +34,16 @@ uint8_t sync_received = 0;
 uint8_t rf233_spi_putc( uint8_t data );
 uint8_t rf233_spi_read_register( uint8_t address);
 uint8_t rf233_spi_write_register( uint8_t address, uint8_t data);
+void rf233_spi_write_register_bit(uint8_t reg_addr, uint8_t mask, uint8_t pos, uint8_t new_value);
 
 
 
 ISR(RF233_IRQ_VECTOR)
 {
 	//(6.25*12800)/1000
-	wireless_sync_elapsed = wireless_sync_millis - wireless_sync_prev;
-	wireless_sync_prev = wireless_sync_millis;
-	sync_received = 1;
+//	wireless_sync_elapsed = wireless_sync_millis - wireless_sync_prev;
+//	wireless_sync_prev = wireless_sync_millis;
+//	sync_received = 1;
 
 
 	uint8_t status = _read(IRQ_STATUS);
@@ -94,6 +95,47 @@ uint8_t rf233_spi_write_register( uint8_t address, uint8_t data)
 	SET_CS
 	
 	return ret;
+}
+
+/**
+ * @brief Subregister write
+ *
+ * @param[in]   reg_addr  Offset of the register
+ * @param[in]   mask  Bit mask of the subregister
+ * @param[in]   pos   Bit position of the subregister
+ * @param[out]  new_value  Data, which is muxed into the register
+ */
+void rf233_spi_write_register_bit(uint8_t reg_addr, uint8_t mask, uint8_t pos, uint8_t new_value)
+{
+    uint8_t current_reg_value;
+
+    current_reg_value = rf233_spi_read_register(reg_addr);
+    current_reg_value &= (uint8_t)~(uint16_t)mask;  // Implicit casting required to avoid IAR Pa091.
+    new_value <<= pos;
+    new_value &= mask;
+    new_value |= current_reg_value;
+
+    rf233_spi_write_register(reg_addr, new_value);
+}
+
+/**
+ * @brief Subregister read
+ *
+ * @param   addr  offset of the register
+ * @param   mask  bit mask of the subregister
+ * @param   pos   bit position of the subregister
+ *
+ * @return  value of the read bit(s)
+ */
+uint8_t rf233_spi_read_register_bit(uint8_t addr, uint8_t mask, uint8_t pos)
+{
+    uint8_t ret;
+
+    ret = rf233_spi_read_register(addr);
+    ret &= mask;
+    ret >>= pos;
+
+    return ret;
 }
 
 uint8_t rf233_init_io()
@@ -154,8 +196,6 @@ uint8_t rf233_init(void)
 	//_write(IRQ_MASK, (IRQ_RX_START_bm | IRQ_AMI_bm | IRQ_TRX_END_bm));
 	_write(IRQ_MASK, (0xFF)); // turn them all on
 	
-
-
 	// Go to TRX_OFF state
 	rf233_set_trx_cmd(TRX_CMD_TRX_OFF);
 	
@@ -164,17 +204,19 @@ uint8_t rf233_init(void)
 	return RF233_TRUE;
 }
 
+
+
 uint8_t rf233_enable_tom(void)
 {
 	LOG_V("rf233_enable_tom: ENTER\r\n");
 
-	// enable TOM: Time of Flight
-	_write(0X03, 0b10101101);
+	rf233_spi_write_register_bit(SR_TOM_EN, 0x01);
 
 	LOG_V("rf233_enable_tom: EXIT\r\n");
 
 	return RF233_TRUE;
 }
+
 
 void rf233_status(void)
 {
@@ -254,65 +296,17 @@ void rf233_send_message(rf233_message_t * msg)
 	LOG_V("rf233_send_message: EXIT\r\n");
 }
 
-//void rf233_get_message(rf233_message_t * msg)
-//{
-//	LOG_V("rf233_get_message: ENTER\r\n");
-//
-//
-//
-//	// Grab the bytes
-//	RESET_CS
-//
-//
-//	_send(READ_FRAME_BUFFER);
-//
-//
-//	msg->PHR = _send(0xFF);	// PHR
-//	for (int i=0;i<msg->PHR-2;i++)
-//		msg->PSDU[i] = _send(0xFF);
-//	msg->FCS = ((uint16_t)_send(0xFF)) << 8;
-//	msg->FCS |= _send(0xFF);
-//	msg->LQI = _send(0xFF);
-//	msg->ED = _send(0xFF);
-//	msg->RX_STATUS = _send(0xFF);
-//
-//	SET_CS
-//
-//	LOG_V("rf233_get_message: EXIT\r\n");
-//}
-
-
 void rf233_get_message(rf233_message_t * msg)
 {
 	LOG_V("rf233_get_message: ENTER\r\n");
 
-	msg->PHR = _read(0x00);
 
 
-	for (int i=0;i<msg->PHR-2;i++)
-		msg->PSDU[i] = _read(i+1);
+	// Grab the bytes
+	RESET_CS
 
-	msg->FCS = ((uint16_t)_read(msg->PHR-2)) << 8;
-	msg->FCS |= _read(msg->PHR-1);
 
-	msg->LQI = _read(msg->PHR);
-	msg->ED = _read(msg->PHR+1);
-	msg->RX_STATUS = _read(msg->PHR+2);
-
-	msg->TOM_0 = _read(0x7d);
-	msg->TOM_1 = _read(0x7e);
-	msg->TOM_2 = _read(0x7f);
-
-	LOG_V("rf233_get_message: EXIT\r\n");
-
-	return;
-
-	msg->FCS = ((uint16_t)_send(0xFF)) << 8;
-	msg->FCS |= _send(0xFF);
-	msg->LQI = _send(0xFF);
-	msg->ED = _send(0xFF);
-	msg->RX_STATUS = _send(0xFF);
-
+	_send(READ_FRAME_BUFFER);
 
 
 	msg->PHR = _send(0xFF);	// PHR
@@ -328,3 +322,48 @@ void rf233_get_message(rf233_message_t * msg)
 
 	LOG_V("rf233_get_message: EXIT\r\n");
 }
+
+void rf233_frame_read(uint8_t *data, uint8_t len)
+{
+	LOG_V("rf233_frame_read: ENTER\r\n");
+
+	RESET_CS
+
+	_send(READ_FRAME_BUFFER);
+
+//	if(len > 1) {
+//		for(int i=0; i<len; i++) {
+//			*data = _send(SPI_DUMMY_VALUE);
+//			LOG_V("data: %02x\r\n", data);
+//			data++;
+//		}
+//	}
+
+//	do
+//	{
+//		*data = _send(SPI_DUMMY_VALUE);
+//		LOG_V("data: %02x\r\n", *data);
+//		data++;
+//		len--;
+//	}
+//	while(len > 1);
+//
+//	*data = _send(SPI_DUMMY_VALUE);
+
+	for(int i = 0; i < len; i++)
+	{
+		*(data + i) = _send(SPI_DUMMY_VALUE);
+
+	}
+
+	SET_CS
+
+	LOG_V("rf233_frame_read: EXIT\r\n");
+}
+
+
+
+
+
+
+

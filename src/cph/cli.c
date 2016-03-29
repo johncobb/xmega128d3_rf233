@@ -57,7 +57,7 @@ void handle_input(void)
 		else if (debug_in == 'a')
 		{
 			autoping = ~autoping;
-			timer = clock_millis;
+			app_timer = clock_millis;
 			printf_P(PSTR("AUTOPING is now %X\r\n"), autoping);
 		}
 		else if (debug_in == 'b')
@@ -78,7 +78,7 @@ void handle_input(void)
 		else if (debug_in == 'f')
 		{
 			fast = ~fast;
-			period = (fast ? DEFAULT_PERIOD_FAST : DEFAULT_PERIOD);
+			app_period = (fast ? DEFAULT_PERIOD_FAST : DEFAULT_PERIOD);
 			printf_P(PSTR("FAST mode is %X\r\n"), fast);
 		}
 		else if (debug_in == 's')
