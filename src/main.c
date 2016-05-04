@@ -54,8 +54,8 @@ void receive_cb(radio_message_t * message)
 int main(void)
 {
 
-	app_period = DEFAULT_PERIOD_FAST;
-//	app_period = DEFAULT_PERIOD;
+//	app_period = DEFAULT_PERIOD_FAST;
+	app_period = DEFAULT_PERIOD;
 	
 	// First thing: initialize clock
 	clock_init();	
@@ -113,7 +113,6 @@ void handle_clock_master(void)
 
 	if (elapsed >= app_period)
 	{
-		printf_P(PSTR("PING \r\n"));
 		radio_send_string("PING\r\n");
 		app_timer = clock_millis;
 

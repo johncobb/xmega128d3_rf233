@@ -28,6 +28,7 @@ typedef void (*rf233_irq_cb_t)(uint8_t);
 uint8_t rf233_init_io(void);
 uint8_t rf233_init(void);
 uint8_t rf233_enable_tom(void);
+uint8_t rf233_enable_irq_2_ext(void);
 
 
 void rf233_reset(void);

@@ -156,7 +156,11 @@ uint8_t rf233_init_io()
 
 	// Set the IRQ line as a true interrupt
 	RF233_AUX_PORT.INTCTRL = PORT_INT0LVL_HI_gc;
-	RF233_AUX_PORT.INT0MASK = (1 << RF233_AUX_IRQ);
+//	RF233_AUX_PORT.INT0MASK = (1 << RF233_AUX_IRQ);
+
+	RF233_AUX_PORT.INT0MASK = (1 << RF233_AUX_IRQ) | (1 << RF233_AUX_DIG2);
+
+
 
 	// Configure lines on SPI
 	SET(RF233_SPI_CS)
@@ -216,6 +220,18 @@ uint8_t rf233_enable_tom(void)
 
 	return RF233_TRUE;
 }
+
+uint8_t rf233_enable_irq_2_ext(void)
+{
+	LOG_V("rf233_enable_irq_2_ext: ENTER\r\n");
+
+	rf233_spi_write_register_bit(SR_IRQ_2_EXT_EN, 0x01);
+
+	LOG_V("rf233_enable_irq_2_ext: EXIT\r\n");
+
+	return RF233_TRUE;
+}
+
 
 
 void rf233_status(void)

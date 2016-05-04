@@ -18,8 +18,9 @@
 #include <util/delay.h>
 #include "clock.h"
 
-#define CLOCK_MASTER   0
-#define DEFAULT_PERIOD	     (2000)
+#define CLOCK_MASTER   1
+//#define DEFAULT_PERIOD	     (1000)
+#define DEFAULT_PERIOD	     (100)
 #define DEFAULT_PERIOD_FAST  (100) //25519 @ 100ms  12928 @ 50ms
 #define WAIT_FOR_PRESS	{debug_in = '\0'; while (debug_in == '\0');}
 

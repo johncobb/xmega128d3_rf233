@@ -24,6 +24,8 @@ void radio_init_enter(void)
 	
 	result = rf233_enable_tom();
 
+	result =  rf233_enable_irq_2_ext();
+
 	if (result == 0)
 	{
 		LOG("[INIT] FAILED\r\n");
